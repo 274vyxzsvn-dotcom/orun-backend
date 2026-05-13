@@ -4,7 +4,7 @@ const OpenAI = require("openai");
 
 const app = express();
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -26,8 +26,7 @@ app.post("/test", (req, res) => {
 app.post("/ai/test", async (req, res) => {
   try {
     const { message, systemPrompt } = req.body;
-    
-    const systemMessage = systemPrompt || "You are a professional stress wellness assistant.";
+    console.log("Body received:", JSON.stringify(req.body));    const systemMessage = systemPrompt || "You are a professional stress wellness assistant.";
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
