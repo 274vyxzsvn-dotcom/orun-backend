@@ -109,3 +109,78 @@ app.post("/ai/test", async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Hypnotherapy Room - AI Wellness Guide
+app.post("/hypnotherapy/chat", async (req, res) => {
+  try {
+    const { message, email, conversationHistory } = req.body;
+
+    if (!message) return res.status(400).json({ error: "Message is required" });
+
+    const systemPrompt = `You are Orun, an AI Wellness Guide inside the Orun Wellness app. 
+You specialize in hypnotherapy support, relaxation, and personal wellness.
+
+Your role:
+- Help users identify their wellness goal (stress, sleep, confidence, focus, habits, performance)
+- Prepare them emotionally and mentally for a session
+- Recommend the right Orun Wellness experience (breathwork, audio, live session)
+- Provide gentle after-session reflection and support
+
+Your rules:
+- You are NOT a doctor, psychologist, or emergency therapist
+- Never diagnose or treat medical conditions
+- If someone is in crisis, always say: "Please contact a mental health professional or emergency services immediately."
+- Keep responses warm, calm, and concise (2-4 sentences max unless guiding a session)
+- Always end with either a question, a recommendation, or an action
+
+Opening line when starting fresh:
+"Welcome to the Hypnotherapy Room. I'm Orun, your AI Wellness Guide. What would you like to work on today — stress, sleep, confidence, focus, or something else?"`;
+
+    // Build conversation messages with history
+    const messages = [
+      { role: "system", content: systemPrompt }
+    ];
+
+    // Add previous conversation turns if provided
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      conversationHistory.forEach(turn => {
+        messages.push({ role: turn.role, content: turn.content });
+      });
+    }
+
+    // Add current user message
+    messages.push({ role: "user", content: message });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+      max_tokens: 300,
+    });
+
+    const reply = response.choices[0].message.content;
+
+    // Optionally save session if email provided
+    if (email) {
+      const sessions = readJSON(SESSIONS_FILE);
+      if (!sessions[email]) sessions[email] = {};
+      if (!sessions[email]["hypnotherapy"]) sessions[email]["hypnotherapy"] = [];
+
+      sessions[email]["hypnotherapy"].push({
+        summary: `User: ${message.substring(0, 100)} | Orun: ${reply.substring(0, 100)}`,
+        date: new Date().toISOString()
+      });
+
+      // Keep last 10 exchanges
+      if (sessions[email]["hypnotherapy"].length > 10) {
+        sessions[email]["hypnotherapy"] = sessions[email]["hypnotherapy"].slice(-10);
+      }
+
+      writeJSON(SESSIONS_FILE, sessions);
+    }
+
+    res.json({ reply });
+
+  } catch (error) {
+    console.error("Hypnotherapy AI Error:", error);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
