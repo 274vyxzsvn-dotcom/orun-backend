@@ -116,8 +116,10 @@ app.post("/hypnotherapy/chat", async (req, res) => {
 
     if (!message) return res.status(400).json({ error: "Message is required" });
 
-    const systemPrompt = `You are Orun, an AI Wellness Guide inside the Orun Wellness app.
+const isNewCconversation = !conversationHistory || !Array.isArray(conversationHistory) || conversationHistory.length === 0;
+const systemPrompt = `You are Orun, an AI Wellness Guide inside the Orun Wellness app.
 ${isNewConversation ? 'This is a FRESH conversation.' : 'This is a CONTINUING conversation. Do NOT re-introduce yourself. Do NOT repeat the welcome message.'}
+You specialize in hypnotherapy support, relaxation, and personal wellness.
 You specialize in hypnotherapy support, relaxation, and personal wellness.
 
 Your role:
