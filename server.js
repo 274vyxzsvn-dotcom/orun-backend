@@ -73,8 +73,8 @@ app.get("/session/load", (req, res) => {
 // AI chat with memory
 app.post("/ai/test", async (req, res) => {
   try {
-    const message = req.query.message;
-    const systemPrompt = req.query.systemPrompt || "You are a professional wellness assistant.";
+   const message = req.body.message;
+const systemPrompt = req.body.systemPrompt || "You are a professional wellness assistant.";
     const email = req.query.email;
     const room = req.body.room;
 
