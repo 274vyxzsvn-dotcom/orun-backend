@@ -112,7 +112,7 @@ app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`)
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
   try {
-    const { message, email, conversationHistory } = req.body;
+   const { message, email, conversationHistory, room } = req.body;
 
     if (!message) return res.status(400).json({ error: "Message is required" });
 
