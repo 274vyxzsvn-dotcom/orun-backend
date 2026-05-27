@@ -76,7 +76,7 @@ app.post("/ai/test", async (req, res) => {
     const message = req.query.message;
     const systemPrompt = req.query.systemPrompt || "You are a professional wellness assistant.";
     const email = req.query.email;
-    const room = req.query.room;
+    const room = req.body.room;
 
     console.log("Query received:", { message, email, room });
 
