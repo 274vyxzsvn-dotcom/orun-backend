@@ -355,7 +355,7 @@ const systemPrompt = roomPrompts[room] || roomPrompts['hypnotherapy'];
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: messages,
-      max_tokens: 800,
+      max_tokens: 2500,
     });
     const reply = response.choices[0].message.content;
 
