@@ -5,10 +5,14 @@ const path = require("path");
 
 const app = express();
 app.use(express.json());
+app.use('/audio', express.static('audio_files'));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const PORT = 3000;
 
+if (!fs.existsSync('audio_files')) {
+  fs.mkdirSync('audio_files');
+}
 // File paths for storage
 const USERS_FILE = path.join(__dirname, "users.json");
 const SESSIONS_FILE = path.join(__dirname, "sessions.json");
@@ -138,8 +142,12 @@ app.post('/voice', async (req, res) => {
     }
 
     const audioBuffer = await response.arrayBuffer();
-    res.set('Content-Type', 'audio/mpeg');
-    res.send(Buffer.from(audioBuffer));
+const fileName = `voice_${Date.now()}.mp3`;
+const filePath = `audio_files/${fileName}`;
+fs.writeFileSync(filePath, Buffer.from(audioBuffer));
+
+const audioUrl = `${req.protocol}://${req.get('host')}/audio/${fileName}`;
+res.json({ audioUrl });
 
   } catch (error) {
     console.error('Voice endpoint error:', error);
