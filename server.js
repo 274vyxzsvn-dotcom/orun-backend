@@ -155,6 +155,20 @@ res.json({ audioUrl });
   }
 });
 
+// Clean up old audio files every hour
+setInterval(() => {
+  const files = fs.readdirSync('audio_files');
+  const now = Date.now();
+  files.forEach(file => {
+    const filePath = `audio_files/${file}`;
+    const stats = fs.statSync(filePath);
+    const ageMinutes = (now - stats.mtimeMs) / 1000 / 60;
+    if (ageMinutes > 30) {
+      fs.unlinkSync(filePath);
+    }
+  });
+}, 60 * 60 * 1000);
+
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
