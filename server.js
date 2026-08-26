@@ -1,7 +1,7 @@
 const express = require("express");
 const OpenAI = require("openai");
 const fs = require("fs");
-const path = require("path");
+const path = require("path"); 
 
 const app = express();
 app.use(express.json());
@@ -116,7 +116,7 @@ app.post('/voice', async (req, res) => {
     const { text, voiceId } = req.body;
     
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || '21m00Tcm4TlvDq8ikWAM'}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || 'bgU7lBMo69PNEOWHFqxM'}`,
       {
         method: 'POST',
         headers: {
