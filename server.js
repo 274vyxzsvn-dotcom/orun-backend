@@ -170,6 +170,53 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// HitPay Subscription Payment Endpoint
+app.post('/create-subscription', async (req, res) => {
+  const { user_id, plan, email } = req.body; // plan: "monthly" or "yearly"
+
+  const amount = plan === 'yearly' ? '59.99' : '7.99';
+  const reference = `${user_id}_${plan}_${Date.now()}`;
+
+  try {
+    const response = await fetch('https://api.hit-pay.com/v1/payment-requests', {
+      method: 'POST',
+      headers: {
+        'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        amount: amount,
+        currency: 'SGD',
+        email: email || '',
+        reference_number: reference,
+        redirect_url: 'https://orunwellness.com/thank-you',
+        webhook: 'https://orun-backend-production.up.railway.app/hitpay-webhook'
+      })
+    });
+
+    const data = await response.json();
+    res.json({ paymentUrl: data.url, reference: reference });
+  } catch (error) {
+    console.error('HitPay create-subscription error:', error);
+    res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
+// HitPay Webhook - confirms payment and unlocks premium
+app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) => {
+  const { reference_number, status } = req.body;
+
+  if (status === 'completed') {
+    const [user_id, plan] = reference_number.split('_');
+    const days = plan === 'yearly' ? 365 : 30;
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    // TODO: mark this user_id as premium until expiresAt in your user storage
+    console.log(`User ${user_id} is now premium until ${expiresAt}`);
+  }
+
+  res.sendStatus(200);
+});
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
   try {
