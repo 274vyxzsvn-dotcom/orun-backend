@@ -217,6 +217,44 @@ app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) =
 
   res.sendStatus(200);
 });
+// Subscribe link — creates HitPay payment and redirects straight to checkout
+app.get('/subscribe', async (req, res) => {
+  const plan = req.query.plan === 'yearly' ? 'yearly' : 'monthly';
+  const email = req.query.email || '';
+  const user_id = req.query.user_id || email || 'guest';
+  const amount = plan === 'yearly' ? '59.99' : '7.99';
+  const reference = `${user_id}_${plan}_${Date.now()}`;
+
+  try {
+    const response = await fetch('https://api.hit-pay.com/v1/payment-requests', {
+      method: 'POST',
+      headers: {
+        'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        amount: amount,
+        currency: 'SGD',
+        email: email,
+        reference_number: reference,
+        redirect_url: 'https://orun-backend-production.up.railway.app/thank-you',
+        webhook: 'https://orun-backend-production.up.railway.app/hitpay-webhook'
+      })
+    });
+
+    const data = await response.json();
+    if (data.url) return res.redirect(data.url);
+    res.status(500).send('Could not start payment. Please try again.');
+  } catch (error) {
+    console.error('subscribe error:', error);
+    res.status(500).send('Could not start payment. Please try again.');
+  }
+});
+
+// Simple thank-you page after payment
+app.get('/thank-you', (req, res) => {
+  res.send('<h2>Thank you — your Orun Wellness subscription is active.</h2><p>You can close this window and return to the app.</p>');
+});
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
   try {
