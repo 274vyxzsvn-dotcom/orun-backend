@@ -531,3 +531,43 @@ const systemPrompt = roomPrompts[room] || roomPrompts['hypnotherapy'];
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+
+// ORUN AI Realtime Voice - create temporary client session
+app.get("/realtime/session", async (req, res) => {
+  try {
+    const response = await fetch(
+      "https://api.openai.com/v1/realtime/client_secrets",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          session: {
+            type: "realtime",
+            model: "gpt-realtime",
+            instructions:
+              "You are ORUN, a warm, calm and supportive holistic wellness companion. Speak naturally and conversationally. Listen carefully before guiding. Keep responses concise unless guiding a wellness exercise."
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Realtime session error:", data);
+      return res.status(response.status).json(data);
+    }
+
+    res.json(data);
+
+  } catch (error) {
+    console.error("Realtime session error:", error);
+    res.status(500).json({
+      error: "Failed to create realtime session"
+    });
+  }
+});
