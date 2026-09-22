@@ -535,6 +535,9 @@ const systemPrompt = roomPrompts[room] || roomPrompts['hypnotherapy'];
 
 // ORUN AI Realtime Voice - create temporary client session
 app.get("/realtime/session", async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   try {
     const response = await fetch(
       "https://api.openai.com/v1/realtime/client_secrets",
