@@ -29,6 +29,9 @@ app.get("/", (req, res) => { res.send("Orun Backend is Running 🚀"); });
 
 // Register / Login user
 app.post("/auth/register", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   const { email, name } = req.body;
   if (!email || !name) return res.status(400).json({ error: "Email and name required" });
   
