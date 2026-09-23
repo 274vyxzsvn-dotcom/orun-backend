@@ -571,8 +571,7 @@ app.get("/realtime/session", async (req, res) => {
           session: {
             type: "realtime",
             model: "gpt-realtime",
-            instructions:
-              instructions: `
+            instructions: `
 You are ORUN, the conversational AI wellness guide inside Orun Wellness.
 
 IDENTITY AND PRESENCE
