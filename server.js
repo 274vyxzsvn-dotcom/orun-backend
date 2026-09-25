@@ -571,6 +571,18 @@ app.get("/realtime/session", async (req, res) => {
           session: {
             type: "realtime",
             model: "gpt-realtime",
+            audio: {
+  input: {
+    turn_detection: {
+      type: "server_vad",
+      threshold: 0.7,
+      prefix_padding_ms: 300,
+      silence_duration_ms: 600,
+      create_response: true,
+      interrupt_response: true
+    }
+  }
+},
             instructions: `
 You are ORUN, the conversational AI wellness guide inside Orun Wellness.
 
