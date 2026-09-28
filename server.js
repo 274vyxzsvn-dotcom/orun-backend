@@ -698,7 +698,7 @@ Do not pretend to know personal information that has not been provided to you or
 Above all, make the user feel that they are having a genuine conversation with one intelligent, attentive ORUN guide—not navigating a menu of wellness features.
 `,
           }
-        })
+        }
       }
     );
 
