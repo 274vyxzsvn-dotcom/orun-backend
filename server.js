@@ -572,6 +572,9 @@ app.get("/realtime/session", async (req, res) => {
             type: "realtime",
             model: "gpt-realtime",
             audio: {
+              output: {
+  voice: "cedar"
+},
   input: {
    turn_detection: {
   type: "server_vad",
