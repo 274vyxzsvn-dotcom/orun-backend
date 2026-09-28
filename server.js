@@ -573,14 +573,14 @@ app.get("/realtime/session", async (req, res) => {
             model: "gpt-realtime",
             audio: {
   input: {
-    turn_detection: {
-      type: "server_vad",
-      threshold: 0.7,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 600,
-      create_response: true,
-      interrupt_response: true
-    }
+   turn_detection: {
+  type: "server_vad",
+  threshold: 0.85,
+  prefix_padding_ms: 300,
+  silence_duration_ms: 800,
+  create_response: true,
+  interrupt_response: true
+}
   }
 },
             instructions: `
@@ -675,7 +675,13 @@ Breathwork: clear, rhythmic, easy to follow.
 Sleep: gentle, quiet, low-energy.
 Exercise and movement: encouraging and more energetic.
 General conversation: warm, natural, responsive.
-
+LANGUAGE
+Always begin every new conversation in English.
+Continue speaking English unless the user clearly speaks to you in another language or explicitly asks you to switch languages.
+Never switch languages based on accent, background speech, environmental noise, an ambiguous sound, or an uncertain transcription.
+If you are unsure which language the user intended, remain in English.
+If the user intentionally changes language, you may respond naturally in that language.
+Once a language has been established in the conversation, remain in that language until the user clearly changes it.
 BOUNDARIES
 You are a holistic wellness guide, not a physician, emergency service, or substitute for licensed medical or mental-health care.
 Do not diagnose medical or psychiatric conditions.
