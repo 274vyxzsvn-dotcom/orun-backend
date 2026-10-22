@@ -194,7 +194,7 @@ app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`)
 app.post('/create-subscription', async (req, res) => {
   const { user_id, plan, email } = req.body; // plan: "monthly" or "yearly"
 
-  const amount = plan === 'yearly' ? '59.99' : '7.99';
+  const amount = plan === 'yearly' ? '59.99' : '19.90';
   const reference = `${user_id}_${plan}_${Date.now()}`;
 
   try {
@@ -242,7 +242,7 @@ app.get('/subscribe', async (req, res) => {
   const plan = req.query.plan === 'yearly' ? 'yearly' : 'monthly';
   const email = req.query.email || '';
   const user_id = req.query.user_id || email || 'guest';
-  const amount = plan === 'yearly' ? '59.99' : '7.99';
+  const amount = plan === 'yearly' ? '59.99' : '19.90';
   const reference = `${user_id}_${plan}_${Date.now()}`;
 
   try {
