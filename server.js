@@ -22,7 +22,13 @@ app.use((req, res, next) => {
 
   next();
 });
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl === "/hitpay-webhook") {
+      req.rawBody = Buffer.from(buf);
+    }
+  }
+}));
 app.use('/audio', express.static('audio_files'));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
