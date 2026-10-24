@@ -229,20 +229,18 @@ app.post('/create-subscription', async (req, res) => {
   }
 });
 
-// HitPay Webhook - confirms payment and unlocks premium
+// HitPay webhook - reject unverified notifications
 app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) => {
-  const { reference_number, status } = req.body;
+  const signature = req.get('Hitpay-Signature');
+  const salt = process.env.HITPAY_WEBHOOK_SALT;
 
-  if (status === 'completed') {
-    const [user_id, plan] = reference_number.split('_');
-    const days = plan === 'yearly' ? 365 : 30;
-    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-
-    // TODO: mark this user_id as premium until expiresAt in your user storage
-    console.log(`User ${user_id} is now premium until ${expiresAt}`);
+  if (!signature || !salt || !Buffer.isBuffer(req.rawBody)) {
+    console.warn('HitPay webhook: signature verification unavailable');
+    return res.sendStatus(401);
   }
 
-  res.sendStatus(200);
+  // Signature validation and payment processing will be added next.
+  return res.sendStatus(503);
 });
 // Subscribe link — creates HitPay payment and redirects straight to checkout
 app.get('/subscribe', async (req, res) => {
