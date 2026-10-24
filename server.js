@@ -239,7 +239,21 @@ app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) =
     return res.sendStatus(401);
   }
 
-  // Signature validation and payment processing will be added next.
+ const expectedSignature = crypto
+  .createHmac('sha256', salt)
+  .update(req.rawBody)
+  .digest('hex');
+
+const receivedSignature = Buffer.from(signature, 'hex');
+const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+if (
+  receivedSignature.length !== expectedBuffer.length ||
+  !crypto.timingSafeEqual(receivedSignature, expectedBuffer)
+) {
+  console.warn('HitPay webhook: invalid signature');
+  return res.sendStatus(401);
+}
   return res.sendStatus(503);
 });
 // Subscribe link — creates HitPay payment and redirects straight to checkout
