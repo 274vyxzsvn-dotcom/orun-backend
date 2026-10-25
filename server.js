@@ -250,7 +250,12 @@ app.post('/create-subscription', async (req, res) => {
 });
 
 // HitPay webhook - reject unverified notifications
-app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) => {
+app.post('/hitpay-webhook', express.urlencoded({
+  extended: true,
+  verify: (req, res, buf) => {
+    req.rawBody = Buffer.from(buf);
+  }
+}), (req, res) => {
   const signature = req.get('Hitpay-Signature');
   const salt = process.env.HITPAY_WEBHOOK_SALT;
 
