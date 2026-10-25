@@ -236,8 +236,7 @@ app.post('/create-subscription', async (req, res) => {
         currency: 'SGD',
         email: email || '',
         reference_number: reference,
-        redirect_url: 'https://orunwellness.com/thank-you',
-        webhook: 'https://orun-backend-production.up.railway.app/hitpay-webhook'
+        redirect_url: 'https://orunwellness.com/thank-you'
       })
     });
 
