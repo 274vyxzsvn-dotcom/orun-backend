@@ -4,6 +4,13 @@ const OpenAI = require("openai");
 const fs = require("fs");
 const path = require("path"); 
 
+const admin = require("firebase-admin");
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+  });
+}
 const app = express();
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
