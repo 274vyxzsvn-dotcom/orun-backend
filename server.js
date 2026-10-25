@@ -260,7 +260,10 @@ if (
 app.get('/subscribe', async (req, res) => {
   const plan = req.query.plan === 'yearly' ? 'yearly' : 'monthly';
   const email = req.query.email || '';
-  const user_id = req.query.user_id || email || 'guest';
+  const user_id = req.query.user_id;
+  if (!user_id) {
+  return res.status(400).send('Customer ID is required');
+}
   const amount = plan === 'yearly' ? '59.99' : '19.90';
   const reference = `${user_id}_${plan}_${Date.now()}`;
 
