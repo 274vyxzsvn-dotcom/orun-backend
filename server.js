@@ -252,7 +252,7 @@ app.post('/create-subscription', async (req, res) => {
 // HitPay webhook - reject unverified notifications
 app.post('/hitpay-webhook', express.urlencoded({ extended: true }), (req, res) => {
   const signature = req.get('Hitpay-Signature');
-  const salt = process.env.HITPAY_SALT;
+  const salt = process.env.HITPAY_WEBHOOK_SALT;
 
   if (!signature || !salt || !Buffer.isBuffer(req.rawBody)) {
     console.warn('HitPay webhook: signature verification unavailable');
