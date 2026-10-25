@@ -11,6 +11,19 @@ if (!admin.apps.length) {
     credential: admin.credential.applicationDefault(),
   });
 }
+
+const { createClient } = require("@supabase/supabase-js");
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
 const app = express();
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
