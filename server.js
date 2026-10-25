@@ -264,10 +264,28 @@ if (
   return res.sendStatus(503);
 });
 // Subscribe link — creates HitPay payment and redirects straight to checkout
-app.get('/subscribe', async (req, res) => {
+app.post('/subscribe', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+const token = authHeader.startsWith('Bearer ')
+  ? authHeader.slice(7)
+  : null;
+
+if (!token) {
+  return res.status(401).send('Authentication required');
+}
+
+let decodedToken;
+try {
+  decodedToken = await admin.auth().verifyIdToken(token);
+} catch (error) {
+  return res.status(401).send('Invalid or expired authentication token');
+}
   const plan = req.query.plan === 'yearly' ? 'yearly' : 'monthly';
-  const email = req.query.email || '';
-  const user_id = req.query.user_id;
+  const email = decodedToken.email || '';
+  if (!email) {
+  return res.status(400).send('Customer email is required');
+}
+  const user_id = decodedToken.uid;
   if (!user_id) {
   return res.status(400).send('Customer ID is required');
 }
