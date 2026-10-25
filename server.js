@@ -321,8 +321,7 @@ try {
         currency: 'SGD',
         email: email,
         reference_number: reference,
-        redirect_url: 'https://orun-backend-production.up.railway.app/thank-you',
-        webhook: 'https://orun-backend-production.up.railway.app/hitpay-webhook'
+       redirect_url: 'https://orun-backend-production.up.railway.app/thank-you'
       })
     });
 
@@ -337,7 +336,7 @@ try {
 
 // Simple thank-you page after payment
 app.get('/thank-you', (req, res) => {
-  res.send('<h2>Thank you — your Orun Wellness subscription is active.</h2><p>You can close this window and return to the app.</p>');
+res.send('<h2>Thank you for your payment!</h2><p>We are verifying your payment and preparing your ORUN Wellness subscription. Please return to the app to check your subscription status.</p>');
 });
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
