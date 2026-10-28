@@ -52,7 +52,7 @@ app.use(express.json({
 app.use('/audio', express.static('audio_files'));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 if (!fs.existsSync('audio_files')) {
   fs.mkdirSync('audio_files');
@@ -218,126 +218,131 @@ setInterval(() => {
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 // HitPay Subscription Payment Endpoint
-app.post('/create-subscription', async (req, res) => {
-  const { user_id, plan, email } = req.body; // plan: "monthly" or "yearly"
-
-  const amount = plan === 'yearly' ? '59.99' : '19.90';
-  const reference = `${user_id}_${plan}_${Date.now()}`;
-
-  try {
-    const response = await fetch('https://api.hit-pay.com/v1/payment-requests', {
-      method: 'POST',
-      headers: {
-        'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        amount: amount,
-        currency: 'SGD',
-        email: email || '',
-        reference_number: reference,
-        redirect_url: 'https://orunwellness.com/thank-you'
-      })
-    });
-
-    const data = await response.json();
-    res.json({ paymentUrl: data.url, reference: reference });
-  } catch (error) {
-    console.error('HitPay create-subscription error:', error);
-    res.status(500).json({ error: 'Failed to create payment' });
-  }
-});
-
-// HitPay webhook - reject unverified notifications
-app.post('/hitpay-webhook', express.urlencoded({
-  extended: true,
-  verify: (req, res, buf) => {
-    req.rawBody = Buffer.from(buf);
-  }
-}), (req, res) => {
-  const signature = req.get('Hitpay-Signature');
-  const salt = process.env.HITPAY_WEBHOOK_SALT;
-
-  if (!signature || !salt || !Buffer.isBuffer(req.rawBody)) {
-    console.warn('HitPay webhook: signature verification unavailable');
-    return res.sendStatus(401);
-  }
-
- const expectedSignature = crypto
-  .createHmac('sha256', salt)
-  .update(req.rawBody)
-  .digest('hex');
-
-const receivedSignature = Buffer.from(signature, 'hex');
-const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-
-if (
-  receivedSignature.length !== expectedBuffer.length ||
-  !crypto.timingSafeEqual(receivedSignature, expectedBuffer)
-) {
-  console.warn('HitPay webhook: invalid signature');
-  return res.sendStatus(401);
+// ORUN Premium development only: one-time 30-day access, not recurring billing.
+// Trial and automatic renewal are not yet implemented.
+const ORUN_PREMIUM_AMOUNT = '19.90';
+const ORUN_PREMIUM_CURRENCY = 'SGD';
+async function orunAuth(req) {
+  const match = /^Bearer (.+)$/i.exec(req.get('authorization') || '');
+  if (!match) return null;
+  return admin.auth().verifyIdToken(match[1]);
 }
-  return res.sendStatus(503);
-});
-// Subscribe link — creates HitPay payment and redirects straight to checkout
+app.post('/create-subscription', (_req, res) =>
+  res.status(410).json({ error: 'Use authenticated POST /subscribe' }));
+
 app.post('/subscribe', async (req, res) => {
-  const authHeader = req.headers.authorization || '';
-const token = authHeader.startsWith('Bearer ')
-  ? authHeader.slice(7)
-  : null;
-
-if (!token) {
-  return res.status(401).send('Authentication required');
-}
-
-let decodedToken;
-try {
-  decodedToken = await admin.auth().verifyIdToken(token);
-} catch (error) {
-  return res.status(401).send('Invalid or expired authentication token');
-}
-  const plan = req.query.plan === 'yearly' ? 'yearly' : 'monthly';
-  const email = decodedToken.email || '';
-  if (!email) {
-  return res.status(400).send('Customer email is required');
-}
-  const user_id = decodedToken.uid;
-  if (!user_id) {
-  return res.status(400).send('Customer ID is required');
-}
-  const amount = plan === 'yearly' ? '59.99' : '19.90';
-  const reference = `${user_id}_${plan}_${Date.now()}`;
-
+  let user;
+  try { user = await orunAuth(req); }
+  catch { return res.status(401).json({ error: 'Invalid authentication' }); }
+  if (!user?.uid || !user?.email) return res.status(401).json({ error: 'Authentication required' });
+  if (req.query.plan && req.query.plan !== 'monthly')
+    return res.status(400).json({ error: 'Only monthly access is supported' });
+  const reference = 'orun_' + crypto.randomUUID();
+  const { error: insertError } = await supabase.from('subscriptions').insert({
+    user_id: user.uid, plan: 'monthly', status: 'pending',
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+    payment_reference: reference
+  });
+  if (insertError) return res.status(503).json({ error: 'Checkout unavailable' });
   try {
     const response = await fetch('https://api.hit-pay.com/v1/payment-requests', {
       method: 'POST',
-      headers: {
-        'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
+      headers: { 'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        amount: amount,
-        currency: 'SGD',
-        email: email,
-        reference_number: reference,
-       redirect_url: 'https://orun-backend-production.up.railway.app/thank-you'
+        amount: ORUN_PREMIUM_AMOUNT, currency: ORUN_PREMIUM_CURRENCY,
+        email: user.email, reference_number: reference,
+        redirect_url: 'https://orun-backend-production.up.railway.app/thank-you'
       })
     });
-
     const data = await response.json();
-    if (data.url) return res.redirect(data.url);
-    res.status(500).send('Could not start payment. Please try again.');
-  } catch (error) {
-    console.error('subscribe error:', error);
-    res.status(500).send('Could not start payment. Please try again.');
+    if (!response.ok || typeof data.url !== 'string' || !data.url.startsWith('https://')) {
+      await supabase.from('subscriptions').update({ status: 'checkout_failed' })
+        .eq('payment_reference', reference).eq('status', 'pending');
+      return res.status(502).json({ error: 'Could not create payment' });
+    }
+    return res.json({ paymentUrl: data.url, reference });
+  } catch (err) {
+    console.error('ORUN checkout error:', err.message);
+    await supabase.from('subscriptions').update({ status: 'checkout_failed' })
+      .eq('payment_reference', reference).eq('status', 'pending');
+    return res.status(502).json({ error: 'Could not create payment' });
   }
 });
 
-// Simple thank-you page after payment
-app.get('/thank-you', (req, res) => {
-res.send('<h2>Thank you for your payment!</h2><p>We are verifying your payment and preparing your ORUN Wellness subscription. Please return to the app to check your subscription status.</p>');
+app.post('/hitpay-webhook', express.urlencoded({
+  extended: false, verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
+}), async (req, res) => {
+  const signature = req.get('Hitpay-Signature') || '';
+  const salt = process.env.HITPAY_WEBHOOK_SALT;
+  if (!salt || !Buffer.isBuffer(req.rawBody) || !/^[a-f0-9]{64}$/i.test(signature))
+    return res.sendStatus(401);
+  const expected = crypto.createHmac('sha256', salt).update(req.rawBody).digest();
+  const received = Buffer.from(signature, 'hex');
+  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected))
+    return res.sendStatus(401);
+  const eventType = String(req.get('Hitpay-Event-Type') || '').toLowerCase();
+  const eventObject = String(req.get('Hitpay-Event-Object') || '').toLowerCase();
+  if (eventObject !== 'payment_request' || !['completed', 'failed'].includes(eventType))
+    return res.sendStatus(200);
+  const id = req.body?.id || req.body?.data?.id;
+  if (typeof id !== 'string' || !/^[a-z0-9_-]{8,128}$/i.test(id))
+    return res.sendStatus(400);
+  try {
+    const response = await fetch('https://api.hit-pay.com/v1/payment-requests/' +
+      encodeURIComponent(id), { headers: { 'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY } });
+    if (!response.ok) return res.sendStatus(503);
+    const payment = await response.json();
+    if (String(payment.id) !== id) return res.sendStatus(503);
+    const reference = payment.reference_number;
+    if (typeof reference !== 'string' || !/^orun_[a-f0-9-]{36}$/i.test(reference))
+      return res.sendStatus(200);
+    const { data, error } = await supabase.from('subscriptions')
+      .select('id,status,plan').eq('payment_reference', reference).limit(1);
+    if (error || !data?.length) return res.sendStatus(503);
+    const record = data[0];
+    if (['active', 'payment_failed'].includes(record.status)) return res.sendStatus(200);
+    if (!['pending', 'checkout_failed'].includes(record.status) || record.plan !== 'monthly')
+      return res.sendStatus(409);
+    if (Math.round(Number(payment.amount) * 100) !== 1990 ||
+        String(payment.currency).toUpperCase() !== 'SGD') return res.sendStatus(409);
+    const status = String(payment.status || '').toLowerCase();
+    if (status === 'completed') {
+      const paidAt = new Date();
+      const expiresAt = new Date(paidAt.getTime() + 30 * 86400000);
+      const { error: updateError } = await supabase.from('subscriptions').update({
+        status: 'active', paid_at: paidAt.toISOString(), expires_at: expiresAt.toISOString()
+      }).eq('id', record.id).in('status', ['pending', 'checkout_failed']);
+      return res.sendStatus(updateError ? 503 : 200);
+    }
+    if (['failed', 'expired'].includes(status)) {
+      const { error: updateError } = await supabase.from('subscriptions')
+        .update({ status: 'payment_failed' }).eq('id', record.id)
+        .in('status', ['pending', 'checkout_failed']);
+      return res.sendStatus(updateError ? 503 : 200);
+    }
+    return res.sendStatus(503);
+  } catch (err) {
+    console.error('ORUN webhook verification error:', err.message);
+    return res.sendStatus(503);
+  }
 });
+
+app.get('/subscription/status', async (req, res) => {
+  let user;
+  try { user = await orunAuth(req); }
+  catch { return res.status(401).json({ error: 'Invalid authentication' }); }
+  if (!user?.uid) return res.status(401).json({ error: 'Authentication required' });
+  const { data, error } = await supabase.from('subscriptions')
+    .select('plan,status,expires_at,paid_at').eq('user_id', user.uid)
+    .eq('status', 'active').gt('expires_at', new Date().toISOString())
+    .order('expires_at', { ascending: false }).limit(1);
+  if (error) return res.status(503).json({ error: 'Status unavailable' });
+  return res.json({ premium: !!data?.length, subscription: data?.[0] || null });
+});
+app.get('/thank-you', (_req, res) =>
+  res.send('<h2>Thank you!</h2><p>Your payment is being verified. Return to the app to check your subscription.</p>'));
+
 // Hypnotherapy Room - AI Wellness Guide
 app.post("/hypnotherapy/chat", async (req, res) => {
   try {
