@@ -222,6 +222,21 @@ app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`)
 // Trial and automatic renewal are not yet implemented.
 const ORUN_PREMIUM_AMOUNT = '19.90';
 const ORUN_PREMIUM_CURRENCY = 'SGD';
+const HITPAY_API_BASE_URL = (process.env.HITPAY_API_BASE_URL || 'https://api.hit-pay.com').replace(/\/$/, '');
+const HITPAY_ALLOWED_BASE_URLS = new Set([
+  'https://api.hit-pay.com',
+  'https://api.sandbox.hit-pay.com'
+]);
+function orunPaymentConfigReady() {
+  if (!HITPAY_ALLOWED_BASE_URLS.has(HITPAY_API_BASE_URL)) return false;
+  if (HITPAY_API_BASE_URL === 'https://api.sandbox.hit-pay.com') {
+    // Sandbox must never write subscription records to the live database.
+    if (process.env.ORUN_SANDBOX_DB_ISOLATED !== 'true') return false;
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(process.env.SUPABASE_URL || '')) return false;
+  }
+  return true;
+}
+
 async function orunAuth(req) {
   const match = /^Bearer (.+)$/i.exec(req.get('authorization') || '');
   if (!match) return null;
@@ -237,6 +252,9 @@ app.post('/subscribe', async (req, res) => {
   if (!user?.uid || !user?.email) return res.status(401).json({ error: 'Authentication required' });
   if (req.query.plan && req.query.plan !== 'monthly')
     return res.status(400).json({ error: 'Only monthly access is supported' });
+  if (!orunPaymentConfigReady()) return res.status(503).json({ error: 'Payment environment not configured safely' });
+  if (HITPAY_API_BASE_URL === 'https://api.sandbox.hit-pay.com' && !process.env.ORUN_STAGING_REDIRECT_URL)
+    return res.status(503).json({ error: 'Staging return URL not configured' });
   const reference = 'orun_' + crypto.randomUUID();
   const { error: insertError } = await supabase.from('subscriptions').insert({
     user_id: user.uid, plan: 'monthly', status: 'pending',
@@ -245,14 +263,16 @@ app.post('/subscribe', async (req, res) => {
   });
   if (insertError) return res.status(503).json({ error: 'Checkout unavailable' });
   try {
-    const response = await fetch('https://api.hit-pay.com/v1/payment-requests', {
+    const response = await fetch(HITPAY_API_BASE_URL + '/v1/payment-requests', {
       method: 'POST',
       headers: { 'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY,
         'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         amount: ORUN_PREMIUM_AMOUNT, currency: ORUN_PREMIUM_CURRENCY,
         email: user.email, reference_number: reference,
-        redirect_url: 'https://orun-backend-production.up.railway.app/thank-you'
+        redirect_url: HITPAY_API_BASE_URL === 'https://api.sandbox.hit-pay.com'
+          ? process.env.ORUN_STAGING_REDIRECT_URL
+          : 'https://orun-backend-production.up.railway.app/thank-you'
       })
     });
     const data = await response.json();
@@ -273,6 +293,7 @@ app.post('/subscribe', async (req, res) => {
 app.post('/hitpay-webhook', express.urlencoded({
   extended: false, verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
 }), async (req, res) => {
+  if (!orunPaymentConfigReady()) return res.sendStatus(503);
   const signature = req.get('Hitpay-Signature') || '';
   const salt = process.env.HITPAY_WEBHOOK_SALT;
   if (!salt || !Buffer.isBuffer(req.rawBody) || !/^[a-f0-9]{64}$/i.test(signature))
@@ -289,7 +310,7 @@ app.post('/hitpay-webhook', express.urlencoded({
   if (typeof id !== 'string' || !/^[a-z0-9_-]{8,128}$/i.test(id))
     return res.sendStatus(400);
   try {
-    const response = await fetch('https://api.hit-pay.com/v1/payment-requests/' +
+    const response = await fetch(HITPAY_API_BASE_URL + '/v1/payment-requests/' +
       encodeURIComponent(id), { headers: { 'X-BUSINESS-API-KEY': process.env.HITPAY_API_KEY } });
     if (!response.ok) return res.sendStatus(503);
     const payment = await response.json();
